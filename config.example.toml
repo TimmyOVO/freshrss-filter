@@ -1,0 +1,44 @@
+# Sample configuration for freshrss-filter
+
+[openai]
+# Your OpenAI API key
+api_key = "sk-..."
+# Optional: API base and model
+# api_base = "https://api.openai.com/v1"
+# model = "gpt-4o-mini"
+# temperature = 0.0
+# max_tokens = 256
+# Confidence threshold for ad decision (0.0-1.0)
+threshold = 0.6
+# System prompt used by the classifier
+system_prompt = "You are a strict classifier. Decide if an RSS item is an advertisement or sponsored content. Reply JSON: {\"is_ad\": boolean, \"confidence\": 0..1, \"reason\": string}."
+
+[freshrss]
+# FreshRSS base URL (with or without trailing slash)
+base_url = "https://freshrss.example.com"
+# Fever API key (FreshRSS -> User -> API management)
+fever_api_key = "<fever_api_key>"
+# User-Agent string for requests
+user_agent = "freshrss-filter/0.1"
+
+# Action when an item is classified as ad:
+# - "mark_read" (default): mark as read using Fever API
+# - "label": add GReader label (spam_label) and mark as read
+delete_mode = "label"
+
+# Only required when delete_mode = "label"
+greader_username = "your_username"
+greader_password = "your_password"
+spam_label = "Ads"
+
+[scheduler]
+# Cron schedule with seconds field (e.g., every 10 minutes)
+cron = "0 */10 * * * *"
+
+[database]
+# SQLite database file path
+path = "freshrss-filter.db"
+
+# Top-level override to prevent write actions
+dry_run = false
+
