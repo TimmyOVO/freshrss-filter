@@ -78,7 +78,7 @@ fn strip_code_fences(s: &str) -> String {
     if t.starts_with("```") {
         // remove first line fence and trailing fence
         let mut lines = t.lines();
-        let first = lines.next();
+        let _first = lines.next();
         let rest: String = lines.collect::<Vec<_>>().join("\n");
         let trimmed = rest.trim_end();
         if trimmed.ends_with("```") {

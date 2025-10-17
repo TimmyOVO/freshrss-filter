@@ -24,5 +24,5 @@ impl Scheduler {
     }
 
     pub async fn start(&mut self) -> Result<()> { self.sched.start().await?; info!("scheduler_started"); Ok(()) }
-    pub async fn shutdown(&mut self) { self.sched.shutdown().await; }
+    pub async fn shutdown(&mut self) { let _ = self.sched.shutdown().await; }
 }

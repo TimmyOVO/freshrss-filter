@@ -101,12 +101,12 @@ async fn main() -> Result<()> {
         }
 
         let pb = ProgressBar::new_spinner();
-        pb.set_style(ProgressStyle::with_template("{spinner} next run in {msg}").unwrap());
+        pb.set_style(ProgressStyle::with_template("{spinner} 下次运行 ~{msg}").unwrap());
         loop {
-            let mut remain = next_run_in(&cron_expr).unwrap_or_else(|| StdDuration::from_secs(600));
+            let remain = next_run_in(&cron_expr).unwrap_or_else(|| StdDuration::from_secs(600));
             let mins = remain.as_secs() / 60;
             let secs = remain.as_secs() % 60;
-            pb.set_message(format!("{:02}:{:02}", mins, secs));
+            pb.set_message(format!("{:02}分{:02}秒", mins, secs));
             pb.tick();
             tokio::time::sleep(StdDuration::from_secs(1)).await;
         }
