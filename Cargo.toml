@@ -1,7 +1,7 @@
 [package]
 name = "freshrss-filter"
 version = "0.1.0"
-edition = "2024"
+edition = "2021"
 
 [dependencies]
 # 异步运行时
@@ -27,7 +27,6 @@ thiserror = "1.0"
 # 日志
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-tracing-indicatif = "0.3"
 indicatif = "0.17"
 futures = "0.3"
 

@@ -10,7 +10,6 @@ mod greader;
 mod openai_client;
 mod processor;
 mod scheduler;
-mod tui_app;
 
 #[derive(Parser, Debug)]
 #[command(name = "freshrss-filter")] 
@@ -59,8 +58,59 @@ async fn main() -> Result<()> {
         return Ok(());
     }
 
-    // TUI + Scheduler
-    let ui_handle = tokio::spawn(tui_app::run_ui(shared_state.clone()));
+    // Simple console countdown for next run based on cron
+    let cron_expr = cfg.scheduler.cron.clone();
+    let countdown_handle = tokio::spawn(async move {
+        use indicatif::{ProgressBar, ProgressStyle};
+        use std::time::Duration as StdDuration;
+        use chrono::{Local, Timelike, Duration as ChronoDuration};
+
+        fn next_run_in(cron: &str) -> Option<StdDuration> {
+            let parts: Vec<&str> = cron.split_whitespace().collect();
+            if parts.len() != 6 { return None; }
+            let sec = parts[0];
+            let min = parts[1];
+            let mut t = Local::now();
+            let now = t;
+
+            if sec == "0" {
+                // advance to next minute boundary
+                let add_secs = (60 - t.second()) % 60;
+                t = t + ChronoDuration::seconds(add_secs as i64);
+                if let Some(tt) = t.with_second(0) { t = tt; }
+
+                if let Some(step_str) = min.strip_prefix("*/") {
+                    if let Ok(step) = step_str.parse::<u32>() {
+                        // advance to minute divisible by step
+                        while t.minute() % step != 0 {
+                            t = t + ChronoDuration::minutes(1);
+                        }
+                    }
+                } else if let Ok(target_min) = min.parse::<u32>() {
+                    while t.minute() != target_min {
+                        t = t + ChronoDuration::minutes(1);
+                    }
+                } else {
+                    // unknown minute field, default next minute
+                }
+
+                let dur = t - now;
+                return dur.to_std().ok();
+            }
+            None
+        }
+
+        let pb = ProgressBar::new_spinner();
+        pb.set_style(ProgressStyle::with_template("{spinner} next run in {msg}").unwrap());
+        loop {
+            let mut remain = next_run_in(&cron_expr).unwrap_or_else(|| StdDuration::from_secs(600));
+            let mins = remain.as_secs() / 60;
+            let secs = remain.as_secs() % 60;
+            pb.set_message(format!("{:02}:{:02}", mins, secs));
+            pb.tick();
+            tokio::time::sleep(StdDuration::from_secs(1)).await;
+        }
+    });
 
     let mut sched = scheduler::Scheduler::new(cfg.scheduler.clone()).await?;
     let proc_clone = proc.clone();
@@ -81,21 +131,18 @@ async fn main() -> Result<()> {
     tokio::signal::ctrl_c().await?;
     info!("shutting_down");
     sched.shutdown().await;
-    ui_handle.abort();
+    countdown_handle.abort();
     Ok(())
 }
 
 fn init_tracing() {
     use tracing_subscriber::{EnvFilter, prelude::*};
     let filter = std::env::var("RUST_LOG").unwrap_or_else(|_| "info,freshrss_filter=debug".to_string());
-    let indicatif_layer = tracing_indicatif::IndicatifLayer::new();
     let fmt_layer = tracing_subscriber::fmt::layer()
         .with_target(false)
-        .with_writer(indicatif_layer.get_stderr_writer())
         .compact();
     tracing_subscriber::registry()
         .with(EnvFilter::new(filter))
         .with(fmt_layer)
-        .with(indicatif_layer)
         .init();
 }

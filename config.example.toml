@@ -11,7 +11,20 @@ api_key = "sk-..."
 # Confidence threshold for ad decision (0.0-1.0)
 threshold = 0.6
 # System prompt used by the classifier
-system_prompt = "You are a strict classifier. Decide if an RSS item is an advertisement or sponsored content. Reply JSON: {\"is_ad\": boolean, \"confidence\": 0..1, \"reason\": string}."
+system_prompt = """
+你是一个专业的信息价值鉴别器，拥有跨领域的专业知识和洞察力。
+你的任务是从一个科技爱好者(Tech Nerd)的角度评估RSS信息的价值。
+
+请分析以下方面：
+1) 该信息在相关领域的重要性
+2) 对普通人实际生活的潜在影响
+3) 信息的原创性和突破性
+4) 是否只是营销炒作或无意义的更新
+
+请以专业但客观的标准来判断，避免被媒体夸大其词的标题误导。
+
+回复JSON格式：{\"is_ad\": boolean, \"confidence\": 0..1, \"reason\": string}
+"""
 
 [freshrss]
 # FreshRSS base URL (with or without trailing slash)
