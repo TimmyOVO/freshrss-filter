@@ -102,11 +102,9 @@ RSS是获取信息的好方法，但随着内容创作者越来越依赖赞助�
 - OpenAI API 密钥
 - 用于构建的 Rust 工具链 (cargo)
 
-### Performance & Resources / 性能与资源
+### Performance & Resources 
 
 Built with Rust's memory safety and zero-cost abstractions, this filter operates with minimal CPU and RAM usage. The efficient design ensures smooth operation even on resource-constrained environments like NAS devices or single-board computers, making it ideal for 24/7 automated processing without affecting system performance.
-
-使用Rust的内存安全和零成本抽象构建，此过滤器以最小的CPU和RAM占用运行。高效的设计确保即使在NAS设备或单板计算机等资源受限的环境中也能流畅运行，使其成为24/7自动化处理的理想选择，不会影响系统性能。
 
 ## Install & Build
 
@@ -198,6 +196,188 @@ cargo run -- --dry-run
 - 指定配置文件路径：
 ```bash
 cargo run -- --config /path/to/config.toml
+```
+
+## Docker Compose Quick Start
+
+Using Docker Compose is the easiest way to run this project. Follow these steps:
+
+### Step 1: Clone the Repository
+```bash
+git clone https://github.com/TimmyOVO/freshrss-filter.git
+cd freshrss-filter
+```
+
+### Step 2: Create Configuration File
+Copy the example configuration and edit it with your settings:
+```bash
+cp config.example.toml config.toml
+nano config.toml  # or use your preferred editor
+```
+
+Make sure to configure:
+- `openai.api_key`: Your OpenAI API key
+- `freshrss.base_url`: Your FreshRSS instance URL
+- `freshrss.fever_api_key`: Your Fever API key (see Configuration section above)
+- Other optional settings as needed
+
+### Step 3: Create Data Directory
+```bash
+mkdir -p data
+```
+
+This directory will store the SQLite database for deduplication.
+
+### Step 4: Start the Service
+```bash
+docker-compose up -d
+```
+
+This will:
+- Build the Docker image from source
+- Start the container in detached mode
+- Mount your `config.toml` and `data` directory
+- Begin processing on the configured schedule
+
+### Step 5: Check Logs
+```bash
+docker-compose logs -f freshrss-filter
+```
+
+You should see logs indicating the service is running and processing items.
+
+### Management Commands
+
+**Stop the service:**
+```bash
+docker-compose down
+```
+
+**Restart the service:**
+```bash
+docker-compose restart
+```
+
+**View logs:**
+```bash
+docker-compose logs -f
+```
+
+**Rebuild after code changes:**
+```bash
+docker-compose up -d --build
+```
+
+### Using Pre-built Images
+
+Instead of building from source, you can use pre-built images from Docker Hub or GitHub Container Registry:
+
+Edit `docker-compose.yml` and replace the `build` section with:
+
+```yaml
+services:
+  freshrss-filter:
+    image: ghcr.io/timmyovo/freshrss-filter:latest
+    # or: image: timmyovo/freshrss-filter:latest
+    container_name: freshrss-filter
+    restart: unless-stopped
+    # ... rest of config
+```
+
+Then simply run:
+```bash
+docker-compose up -d
+```
+
+## Docker Compose 快速开始
+
+使用 Docker Compose 是运行此项目最简单的方法。按照以下步骤操作：
+
+### 步骤 1：克隆仓库
+```bash
+git clone https://github.com/timmyovo/freshrss-filter.git
+cd freshrss-filter
+```
+
+### 步骤 2：创建配置文件
+复制示例配置文件并使用您的设置进行编辑：
+```bash
+cp config.example.toml config.toml
+nano config.toml  # 或使用您喜欢的编辑器
+```
+
+确保配置：
+- `openai.api_key`：您的 OpenAI API 密钥
+- `freshrss.base_url`：您的 FreshRSS 实例 URL
+- `freshrss.fever_api_key`：您的 Fever API 密钥（参见上面的配置章节）
+- 根据需要配置其他可选设置
+
+### 步骤 3：创建数据目录
+```bash
+mkdir -p data
+```
+
+此目录将存储用于去重的 SQLite 数据库。
+
+### 步骤 4：启动服务
+```bash
+docker-compose up -d
+```
+
+这将：
+- 从源代码构建 Docker 镜像
+- 以后台模式启动容器
+- 挂载您的 `config.toml` 和 `data` 目录
+- 按配置的时间表开始处理
+
+### 步骤 5：查看日志
+```bash
+docker-compose logs -f freshrss-filter
+```
+
+您应该看到表明服务正在运行和处理项目的日志。
+
+### 管理命令
+
+**停止服务：**
+```bash
+docker-compose down
+```
+
+**重启服务：**
+```bash
+docker-compose restart
+```
+
+**查看日志：**
+```bash
+docker-compose logs -f
+```
+
+**代码更改后重新构建：**
+```bash
+docker-compose up -d --build
+```
+
+### 使用预构建镜像
+
+您可以使用来自 Docker Hub 或 GitHub Container Registry 的预构建镜像，而不是从源代码构建：
+
+编辑 `docker-compose.yml` 并将 `build` 部分替换为：
+
+```yaml
+services:
+  freshrss-filter:
+    image: ghcr.io/timmyovo/freshrss-filter:latest
+    # 或者：image: timmyovo/freshrss-filter:latest
+    container_name: freshrss-filter
+    restart: unless-stopped
+    # ... 其余配置
+```
+
+然后简单运行：
+```bash
+docker-compose up -d
 ```
 
 ## Actions

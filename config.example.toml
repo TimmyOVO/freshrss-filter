@@ -37,7 +37,7 @@ cron = "0 */10 * * * *"
 
 [database]
 # SQLite database file path
-path = "freshrss-filter.db"
+path = "./data/freshrss-filter.db"
 
 # Top-level override to prevent write actions
 dry_run = false
