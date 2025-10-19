@@ -24,7 +24,7 @@ user_agent = "freshrss-filter/0.1"
 # Action when an item is classified as ad:
 # - "mark_read" (default): mark as read using Fever API
 # - "label": add GReader label (spam_label) and mark as read
-delete_mode = "label"
+delete_mode = "mark_read"
 
 # Only required when delete_mode = "label"
 greader_username = "your_username"
