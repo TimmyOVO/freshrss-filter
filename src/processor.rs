@@ -1,12 +1,3 @@
-use anyhow::Result;
-use futures::stream::{self, StreamExt};
-use colored::Colorize;
-use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
-use std::fmt::{Display, Formatter, Result as FmtResult};
-use std::sync::{Arc, Mutex};
-use tracing::instrument;
-use tracing::{info, warn};
-
 use crate::{
     config::Config,
     db::Database,
@@ -14,6 +5,14 @@ use crate::{
     greader::GReaderClient,
     openai_client::OpenAiClient,
 };
+use anyhow::Result;
+use colored::Colorize;
+use futures::stream::{self, StreamExt};
+use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
+use std::fmt::{Display, Formatter, Result as FmtResult};
+use std::sync::{Arc, Mutex};
+use tracing::instrument;
+use tracing::{info, warn};
 
 #[derive(Clone, Default)]
 pub struct ProcessorState {
@@ -54,7 +53,9 @@ impl Processor {
         // Setup progress UI
         let mp = MultiProgress::new();
         let fetch_pb = mp.add(ProgressBar::new_spinner());
-        fetch_pb.set_style(ProgressStyle::with_template("{spinner} 正在获取未读条目...").unwrap());
+        fetch_pb.set_style(ProgressStyle::with_template(
+            "{spinner} 正在获取未读条目...",
+        )?);
         fetch_pb.enable_steady_tick(std::time::Duration::from_millis(120));
 
         // Fetch items
@@ -66,7 +67,7 @@ impl Processor {
             if let Ok(mut s) = self.state.last_run_status.lock() {
                 *s = "reviewed_items=0/0".into();
             }
-            info!(reviewed = 0, total = 0, "processor_run_once_done");
+            info!("没有未读条目");
             return Ok(());
         }
 
@@ -112,24 +113,14 @@ impl Processor {
                             status_pb.set_message(format!("{} · {}", action, truncate(&title, 60)));
                             match action {
                                 ProcessAction::Kept => {
-                                    let indicator = format!("{}", "[+]".green());
-                                    let action_text = format!("{}", action.to_string().green());
-                                    main_pb.println(format!(
-                                        "{} 处理任务完成: {}, 结果: {}",
-                                        indicator,
-                                        truncate(&title, 60),
-                                        action_text
-                                    ));
+                                    main_pb.suspend(|| {
+                                        info!("{} {}", "[+]".green(), truncate(&title, 60),);
+                                    });
                                 }
                                 ProcessAction::MarkedRead | ProcessAction::Labeled => {
-                                    let indicator = format!("{}", "[-]".red());
-                                    let action_text = format!("{}", action.to_string().red());
-                                    main_pb.println(format!(
-                                        "{} 处理任务完成: {}, 结果: {}",
-                                        indicator,
-                                        truncate(&title, 60),
-                                        action_text
-                                    ));
+                                    main_pb.suspend(|| {
+                                        info!("{} {}", "[-]".red(), truncate(&title, 60),);
+                                    });
                                 }
                                 _ => {}
                             }
@@ -139,9 +130,10 @@ impl Processor {
                             let left = (total_u64.saturating_sub(main_pb.position())) as usize;
                             main_pb.set_message(format!("动作: 出错 | 剩余: {}", left));
                             status_pb.set_message(format!("出错 · {}", truncate(&title, 60)));
-                            let indicator = format!("{}", "[!]".yellow());
                             let error_msg = format!("{}", e.to_string().yellow());
-                            main_pb.println(format!("{} 处理任务出错: {}", indicator, error_msg));
+                            main_pb.suspend(|| {
+                                warn!("{} 处理任务出错: {}", "[!]".yellow(), error_msg);
+                            });
                         }
                     }
                     res
@@ -174,6 +166,17 @@ impl Processor {
         if let Ok(mut s) = self.state.last_run_status.lock() {
             *s = format!("reviewed_items={}/{}", reviewed, total);
         }
+        info!(
+            "完成 {}/{} | 保留={} 已读={} 已打标={} 已删除={} 已存在={} 预演={}",
+            reviewed,
+            total,
+            counts.kept,
+            counts.marked_read,
+            counts.labeled,
+            counts.deleted,
+            counts.skipped_exists,
+            counts.would_act,
+        );
         main_pb.finish_with_message(format!(
             "完成 {}/{} | 保留={} 已读={} 已打标={} 已删除={} 已存在={} 预演={}",
             reviewed,
@@ -186,7 +189,6 @@ impl Processor {
             counts.would_act,
         ));
         status_pb.finish_and_clear();
-        info!(reviewed, total, "processor_run_once_done");
         Ok(())
     }
 
