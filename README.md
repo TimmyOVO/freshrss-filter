@@ -202,18 +202,20 @@ cargo run -- --config /path/to/config.toml
 
 Using Docker Compose is the easiest way to run this project. Follow these steps:
 
-### Step 1: Clone the Repository
+### Step 1: Create Working Directory
 ```bash
-git clone https://github.com/TimmyOVO/freshrss-filter.git
+mkdir freshrss-filter
 cd freshrss-filter
 ```
 
 ### Step 2: Create Configuration File
-Copy the example configuration and edit it with your settings:
+Download the example configuration and edit it with your settings:
 ```bash
-cp config.example.toml config.toml
+curl -o config.toml https://raw.githubusercontent.com/TimmyOVO/freshrss-filter/master/config.example.toml
 nano config.toml  # or use your preferred editor
 ```
+
+Alternatively, create `config.toml` manually.
 
 Make sure to configure:
 - `openai.api_key`: Your OpenAI API key
@@ -228,18 +230,38 @@ mkdir -p data
 
 This directory will store the SQLite database for deduplication.
 
-### Step 4: Start the Service
+### Step 4: Create docker-compose.yml
+
+Create a `docker-compose.yml` file in your project directory with the following content:
+
+```yaml
+version: '3.8'
+
+services:
+  freshrss-filter:
+    image: ghcr.io/timmyovo/freshrss-filter:latest
+    container_name: freshrss-filter
+    restart: unless-stopped
+    environment:
+      - RUST_LOG=info
+    volumes:
+      - ./config.toml:/app/config.toml:ro
+      - ./data:/app/data
+    command: ["/usr/local/bin/freshrss-filter", "--config", "/app/config.toml"]
+```
+
+### Step 5: Start the Service
 ```bash
 docker-compose up -d
 ```
 
 This will:
-- Build the Docker image from source
+- Pull the pre-built Docker image
 - Start the container in detached mode
 - Mount your `config.toml` and `data` directory
 - Begin processing on the configured schedule
 
-### Step 5: Check Logs
+### Step 6: Check Logs
 ```bash
 docker-compose logs -f freshrss-filter
 ```
@@ -263,48 +285,24 @@ docker-compose restart
 docker-compose logs -f
 ```
 
-**Rebuild after code changes:**
-```bash
-docker-compose up -d --build
-```
-
-### Using Pre-built Images
-
-Instead of building from source, you can use pre-built images from Docker Hub or GitHub Container Registry:
-
-Edit `docker-compose.yml` and replace the `build` section with:
-
-```yaml
-services:
-  freshrss-filter:
-    image: ghcr.io/timmyovo/freshrss-filter:latest
-    # or: image: timmyovo/freshrss-filter:latest
-    container_name: freshrss-filter
-    restart: unless-stopped
-    # ... rest of config
-```
-
-Then simply run:
-```bash
-docker-compose up -d
-```
-
 ## Docker Compose 快速开始
 
 使用 Docker Compose 是运行此项目最简单的方法。按照以下步骤操作：
 
-### 步骤 1：克隆仓库
+### 步骤 1：创建工作目录
 ```bash
-git clone https://github.com/timmyovo/freshrss-filter.git
+mkdir freshrss-filter
 cd freshrss-filter
 ```
 
 ### 步骤 2：创建配置文件
-复制示例配置文件并使用您的设置进行编辑：
+下载示例配置文件并使用您的设置进行编辑：
 ```bash
-cp config.example.toml config.toml
+curl -o config.toml https://raw.githubusercontent.com/TimmyOVO/freshrss-filter/master/config.example.toml
 nano config.toml  # 或使用您喜欢的编辑器
 ```
+
+或者手动创建 `config.toml` 文件。
 
 确保配置：
 - `openai.api_key`：您的 OpenAI API 密钥
@@ -319,18 +317,38 @@ mkdir -p data
 
 此目录将存储用于去重的 SQLite 数据库。
 
-### 步骤 4：启动服务
+### 步骤 4：创建 docker-compose.yml
+
+在您的项目目录中创建一个 `docker-compose.yml` 文件，内容如下：
+
+```yaml
+version: '3.8'
+
+services:
+  freshrss-filter:
+    image: ghcr.io/timmyovo/freshrss-filter:latest
+    container_name: freshrss-filter
+    restart: unless-stopped
+    environment:
+      - RUST_LOG=info
+    volumes:
+      - ./config.toml:/app/config.toml:ro
+      - ./data:/app/data
+    command: ["/usr/local/bin/freshrss-filter", "--config", "/app/config.toml"]
+```
+
+### 步骤 5：启动服务
 ```bash
 docker-compose up -d
 ```
 
 这将：
-- 从源代码构建 Docker 镜像
+- 拉取预构建的 Docker 镜像
 - 以后台模式启动容器
 - 挂载您的 `config.toml` 和 `data` 目录
 - 按配置的时间表开始处理
 
-### 步骤 5：查看日志
+### 步骤 6：查看日志
 ```bash
 docker-compose logs -f freshrss-filter
 ```
@@ -352,32 +370,6 @@ docker-compose restart
 **查看日志：**
 ```bash
 docker-compose logs -f
-```
-
-**代码更改后重新构建：**
-```bash
-docker-compose up -d --build
-```
-
-### 使用预构建镜像
-
-您可以使用来自 Docker Hub 或 GitHub Container Registry 的预构建镜像，而不是从源代码构建：
-
-编辑 `docker-compose.yml` 并将 `build` 部分替换为：
-
-```yaml
-services:
-  freshrss-filter:
-    image: ghcr.io/timmyovo/freshrss-filter:latest
-    # 或者：image: timmyovo/freshrss-filter:latest
-    container_name: freshrss-filter
-    restart: unless-stopped
-    # ... 其余配置
-```
-
-然后简单运行：
-```bash
-docker-compose up -d
 ```
 
 ## Actions
