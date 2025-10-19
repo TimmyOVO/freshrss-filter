@@ -1,0 +1,39 @@
+# Git
+.git
+.gitignore
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# macOS
+.DS_Store
+
+# Rust
+target/
+**/*.rs.bk
+
+# 数据库文件
+*.db
+*.db-*
+*.db-wal
+*.db-shm
+
+# 配置文件（包含敏感信息）
+config.toml
+
+# 日志文件
+*.log
+
+# 临时文件
+tmp/
+temp/
+
+# Docker
+Dockerfile*
+.dockerignore
+
+# Claude
+.claude/

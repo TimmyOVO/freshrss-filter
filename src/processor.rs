@@ -1,12 +1,18 @@
 use anyhow::Result;
-use std::sync::{Arc, Mutex};
-use std::fmt::{Display, Formatter, Result as FmtResult};
-use tracing::{info, warn};
-use tracing::instrument;
 use futures::stream::{self, StreamExt};
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
+use std::fmt::{Display, Formatter, Result as FmtResult};
+use std::sync::{Arc, Mutex};
+use tracing::instrument;
+use tracing::{info, warn};
 
-use crate::{db::Database, freshrss::{FreshRssClient, item_text}, greader::GReaderClient, openai_client::OpenAiClient, config::Config};
+use crate::{
+    config::Config,
+    db::Database,
+    freshrss::{FreshRssClient, item_text},
+    greader::GReaderClient,
+    openai_client::OpenAiClient,
+};
 
 #[derive(Clone, Default)]
 pub struct ProcessorState {
@@ -24,10 +30,24 @@ pub struct Processor {
 }
 
 impl Processor {
-    pub fn new(db: Database, fr: FreshRssClient, gr: Option<GReaderClient>, llm: OpenAiClient, cfg: Config, state: ProcessorState) -> Self {
-        Self { db, fr, gr, llm, cfg, state }
+    pub fn new(
+        db: Database,
+        fr: FreshRssClient,
+        gr: Option<GReaderClient>,
+        llm: OpenAiClient,
+        cfg: Config,
+        state: ProcessorState,
+    ) -> Self {
+        Self {
+            db,
+            fr,
+            gr,
+            llm,
+            cfg,
+            state,
+        }
     }
-    
+
     #[instrument(skip(self), name = "run_once")]
     pub async fn run_once(&self) -> Result<()> {
         // Setup progress UI
@@ -54,10 +74,14 @@ impl Processor {
         let main_pb = mp.add(ProgressBar::new(total_u64));
         let concurrency = 5usize;
         main_pb.set_prefix(format!("处理中 并发={}", concurrency));
-        main_pb.set_style(ProgressStyle::default_bar()
-            .template("{prefix} {pos}/{len} [{bar:40.cyan/blue}] {percent}% | 剩余~{eta} | {msg}")
-            .expect("valid template")
-            .progress_chars("=>-"));
+        main_pb.set_style(
+            ProgressStyle::default_bar()
+                .template(
+                    "{prefix} {pos}/{len} [{bar:40.cyan/blue}] {percent}% | 剩余~{eta} | {msg}",
+                )
+                .expect("valid template")
+                .progress_chars("=>-"),
+        );
         main_pb.set_message(format!("剩余: {}", total));
 
         // Status spinner for current action
@@ -85,7 +109,7 @@ impl Processor {
                             let left = (total_u64.saturating_sub(main_pb.position())) as usize;
                             main_pb.set_message(format!("动作: {} | 剩余: {}", action, left));
                             status_pb.set_message(format!("{} · {}", action, truncate(&title, 60)));
-                        },
+                        }
                         Err(e) => {
                             main_pb.inc(1);
                             let left = (total_u64.saturating_sub(main_pb.position())) as usize;
@@ -115,13 +139,19 @@ impl Processor {
                 }
             }
         }
-        let reviewed = (counts.skipped_exists + counts.kept + counts.marked_read + counts.labeled + counts.deleted + counts.would_act) as usize;
+        let reviewed = (counts.skipped_exists
+            + counts.kept
+            + counts.marked_read
+            + counts.labeled
+            + counts.deleted
+            + counts.would_act) as usize;
         if let Ok(mut s) = self.state.last_run_status.lock() {
             *s = format!("reviewed_items={}/{}", reviewed, total);
         }
         main_pb.finish_with_message(format!(
             "完成 {}/{} | 保留={} 已读={} 已打标={} 已删除={} 已存在={} 预演={}",
-            reviewed, total,
+            reviewed,
+            total,
             counts.kept,
             counts.marked_read,
             counts.labeled,
@@ -137,11 +167,15 @@ impl Processor {
     #[instrument(name = "Reviewing content", skip(self, item), fields(item_id = item.id, title = %item.title))]
     async fn handle_item(&self, item: crate::freshrss::FeverItem) -> Result<ProcessAction> {
         let item_id = item.id.to_string();
-        if self.db.has_reviewed(&item_id).await? { return Ok(ProcessAction::SkippedExists); }
+        if self.db.has_reviewed(&item_id).await? {
+            return Ok(ProcessAction::SkippedExists);
+        }
         let text = item_text(&item);
         let hash = format!("{:x}", md5::compute(&text));
         let res = self.llm.classify(&text).await?;
-        self.db.save_review(&item_id, &hash, res.is_ad, res.confidence, &res.reason).await?;
+        self.db
+            .save_review(&item_id, &hash, res.is_ad, res.confidence, &res.reason)
+            .await?;
 
         if res.is_ad && res.confidence >= self.cfg.openai.threshold {
             if self.cfg.dry_run {
@@ -191,7 +225,9 @@ impl Display for ProcessAction {
 }
 
 fn truncate(s: &str, max: usize) -> String {
-    if s.chars().count() <= max { return s.to_string(); }
+    if s.chars().count() <= max {
+        return s.to_string();
+    }
     s.chars().take(max.saturating_sub(1)).collect::<String>() + "…"
 }
 

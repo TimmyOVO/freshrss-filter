@@ -1,8 +1,8 @@
-use anyhow::{anyhow, Result};
-use tracing::instrument;
+use crate::config::OpenAiConfig;
+use anyhow::{Result, anyhow};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use crate::config::OpenAiConfig;
+use tracing::instrument;
 
 #[derive(Clone)]
 pub struct OpenAiClient {
@@ -30,27 +30,46 @@ impl OpenAiClient {
             model: &'a str,
             response_format: RespFmt,
             messages: Vec<Message<'a>>,
-            #[serde(skip_serializing_if = "Option::is_none")] temperature: Option<f32>,
-            #[serde(skip_serializing_if = "Option::is_none")] max_tokens: Option<u32>,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            temperature: Option<f32>,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            max_tokens: Option<u32>,
         }
         #[derive(Serialize)]
-        struct RespFmt { r#type: &'static str }
+        struct RespFmt {
+            r#type: &'static str,
+        }
         #[derive(Serialize)]
-        struct Message<'a> { role: &'static str, content: &'a str }
+        struct Message<'a> {
+            role: &'static str,
+            content: &'a str,
+        }
 
         let body = ReqBody {
             model: &self.cfg.model,
-            response_format: RespFmt { r#type: "json_object" },
+            response_format: RespFmt {
+                r#type: "json_object",
+            },
             messages: vec![
-                Message { role: "system", content: &self.cfg.system_prompt },
-                Message { role: "user", content: text },
+                Message {
+                    role: "system",
+                    content: &self.cfg.system_prompt,
+                },
+                Message {
+                    role: "user",
+                    content: text,
+                },
             ],
             temperature: self.cfg.temperature,
             max_tokens: self.cfg.max_tokens,
         };
 
-        let url = format!("{}/chat/completions", self.cfg.api_base.trim_end_matches('/'));
-        let resp = self.client
+        let url = format!(
+            "{}/chat/completions",
+            self.cfg.api_base.trim_end_matches('/')
+        );
+        let resp = self
+            .client
             .post(url)
             .bearer_auth(&self.cfg.api_key)
             .json(&body)
@@ -64,11 +83,12 @@ impl OpenAiClient {
         }
 
         // Extract content
-        let raw = v["choices"][0]["message"]["content"].as_str().unwrap_or("{}");
+        let raw = v["choices"][0]["message"]["content"]
+            .as_str()
+            .unwrap_or("{}");
         let content = strip_code_fences(raw);
-        let parsed: ClassifierResponse = serde_json::from_str(&content).map_err(|e| {
-            anyhow!("parse_classifier_response_failed: {} raw={}", e, raw)
-        })?;
+        let parsed: ClassifierResponse = serde_json::from_str(&content)
+            .map_err(|e| anyhow!("parse_classifier_response_failed: {} raw={}", e, raw))?;
         Ok(parsed)
     }
 }

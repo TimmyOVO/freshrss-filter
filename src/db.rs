@@ -1,8 +1,11 @@
 use anyhow::Result;
-use sqlx::{sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions}, Pool, Sqlite};
+use chrono::{DateTime, Utc};
+use sqlx::{
+    Pool, Sqlite,
+    sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions},
+};
 use std::str::FromStr;
 use std::sync::Arc;
-use chrono::{DateTime, Utc};
 
 #[derive(Clone)]
 pub struct Database(pub Arc<Pool<Sqlite>>);
@@ -34,16 +37,20 @@ impl Database {
                 reason TEXT NOT NULL,
                 reviewed_at TEXT NOT NULL
             );"#,
-        ).execute(self.pool()).await?;
+        )
+        .execute(self.pool())
+        .await?;
 
-        sqlx::query(
-            r#"CREATE UNIQUE INDEX IF NOT EXISTS idx_reviews_item ON reviews(item_id);"#,
-        ).execute(self.pool()).await?;
+        sqlx::query(r#"CREATE UNIQUE INDEX IF NOT EXISTS idx_reviews_item ON reviews(item_id);"#)
+            .execute(self.pool())
+            .await?;
 
         Ok(())
     }
 
-    pub fn pool(&self) -> &Pool<Sqlite> { &self.0 }
+    pub fn pool(&self) -> &Pool<Sqlite> {
+        &self.0
+    }
 
     pub async fn has_reviewed(&self, item_id: &str) -> Result<bool> {
         let rec: Option<(i64,)> = sqlx::query_as("SELECT 1 FROM reviews WHERE item_id = ? LIMIT 1")
@@ -74,4 +81,3 @@ impl Database {
         Ok(())
     }
 }
-

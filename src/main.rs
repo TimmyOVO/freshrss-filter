@@ -12,7 +12,7 @@ mod processor;
 mod scheduler;
 
 #[derive(Parser, Debug)]
-#[command(name = "freshrss-filter")] 
+#[command(name = "freshrss-filter")]
 #[command(about = "Classify and remove ads from FreshRSS using LLM", long_about = None)]
 struct Cli {
     /// Path to config file (TOML)
@@ -45,13 +45,25 @@ async fn main() -> Result<()> {
     let db = db::Database::new(&cfg.database.path).await?;
 
     let fr_client = freshrss::build_client(&cfg.freshrss)?;
-    let gr_client = if let (Some(u), Some(p)) = (&cfg.freshrss.greader_username, &cfg.freshrss.greader_password) {
+    let gr_client = if let (Some(u), Some(p)) = (
+        &cfg.freshrss.greader_username,
+        &cfg.freshrss.greader_password,
+    ) {
         Some(greader::build_client(&cfg.freshrss, u.clone(), p.clone())?)
-    } else { None };
+    } else {
+        None
+    };
     let llm = openai_client::OpenAiClient::new(cfg.openai.clone());
 
     let shared_state = processor::ProcessorState::default();
-    let proc = processor::Processor::new(db.clone(), fr_client, gr_client, llm, cfg.clone(), shared_state.clone());
+    let proc = processor::Processor::new(
+        db.clone(),
+        fr_client,
+        gr_client,
+        llm,
+        cfg.clone(),
+        shared_state.clone(),
+    );
 
     if cli.once {
         proc.run_once().await?;
@@ -61,13 +73,15 @@ async fn main() -> Result<()> {
     // Simple console countdown for next run based on cron
     let cron_expr = cfg.scheduler.cron.clone();
     let countdown_handle = tokio::spawn(async move {
+        use chrono::{Duration as ChronoDuration, Local, Timelike};
         use indicatif::{ProgressBar, ProgressStyle};
         use std::time::Duration as StdDuration;
-        use chrono::{Local, Timelike, Duration as ChronoDuration};
 
         fn next_run_in(cron: &str) -> Option<StdDuration> {
             let parts: Vec<&str> = cron.split_whitespace().collect();
-            if parts.len() != 6 { return None; }
+            if parts.len() != 6 {
+                return None;
+            }
             let sec = parts[0];
             let min = parts[1];
             let mut t = Local::now();
@@ -77,7 +91,9 @@ async fn main() -> Result<()> {
                 // advance to next minute boundary
                 let add_secs = (60 - t.second()) % 60;
                 t = t + ChronoDuration::seconds(add_secs as i64);
-                if let Some(tt) = t.with_second(0) { t = tt; }
+                if let Some(tt) = t.with_second(0) {
+                    t = tt;
+                }
 
                 if let Some(step_str) = min.strip_prefix("*/") {
                     if let Ok(step) = step_str.parse::<u32>() {
@@ -114,15 +130,17 @@ async fn main() -> Result<()> {
 
     let mut sched = scheduler::Scheduler::new(cfg.scheduler.clone()).await?;
     let proc_clone = proc.clone();
-    sched.add_job(move || {
-        let value = proc_clone.clone();
-        async move {
-            let proc = value.clone();
-            if let Err(e) = proc.run_once().await {
-                error!(?e, "processor_run_once_error");
+    sched
+        .add_job(move || {
+            let value = proc_clone.clone();
+            async move {
+                let proc = value.clone();
+                if let Err(e) = proc.run_once().await {
+                    error!(?e, "processor_run_once_error");
+                }
             }
-        }
-    }).await?;
+        })
+        .await?;
 
     info!("starting_scheduler");
     sched.start().await?;
@@ -137,7 +155,8 @@ async fn main() -> Result<()> {
 
 fn init_tracing() {
     use tracing_subscriber::{EnvFilter, prelude::*};
-    let filter = std::env::var("RUST_LOG").unwrap_or_else(|_| "info,freshrss_filter=debug".to_string());
+    let filter =
+        std::env::var("RUST_LOG").unwrap_or_else(|_| "info,freshrss_filter=debug".to_string());
     let fmt_layer = tracing_subscriber::fmt::layer()
         .with_target(false)
         .compact();
