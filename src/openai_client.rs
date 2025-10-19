@@ -2,7 +2,7 @@ use crate::config::OpenAiConfig;
 use anyhow::{Result, anyhow};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use tracing::instrument;
+use tracing::{instrument, warn};
 
 #[derive(Clone)]
 pub struct OpenAiClient {
@@ -10,7 +10,7 @@ pub struct OpenAiClient {
     cfg: OpenAiConfig,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct ClassifierResponse {
     pub is_ad: bool,
     pub confidence: f32,
@@ -87,9 +87,50 @@ impl OpenAiClient {
             .as_str()
             .unwrap_or("{}");
         let content = strip_code_fences(raw);
-        let parsed: ClassifierResponse = serde_json::from_str(&content)
-            .map_err(|e| anyhow!("parse_classifier_response_failed: {} raw={}", e, raw))?;
-        Ok(parsed)
+        parse_classifier_response(&content, raw)
+    }
+}
+
+fn parse_classifier_response(content: &str, raw: &str) -> Result<ClassifierResponse> {
+    match serde_json::from_str::<ClassifierResponse>(content) {
+        Ok(parsed) => Ok(parsed),
+        Err(primary_err) => {
+            let responses: Vec<ClassifierResponse> =
+                serde_json::from_str(content).map_err(|secondary_err| {
+                    anyhow!(
+                        "parse_classifier_response_failed: {} (array_parse_error: {}) raw={}",
+                        primary_err,
+                        secondary_err,
+                        raw
+                    )
+                })?;
+
+            if responses.is_empty() {
+                return Err(anyhow!(
+                    "parse_classifier_response_failed: empty array raw={}",
+                    raw
+                ));
+            }
+
+            warn!(
+                error = %primary_err,
+                count = responses.len(),
+                "classifier_response_array_detected"
+            );
+
+            if let Some(best_ad) = responses
+                .iter()
+                .filter(|r| r.is_ad)
+                .max_by(|a, b| a.confidence.total_cmp(&b.confidence))
+            {
+                return Ok(best_ad.clone());
+            }
+
+            responses
+                .into_iter()
+                .max_by(|a, b| a.confidence.total_cmp(&b.confidence))
+                .ok_or_else(|| anyhow!("parse_classifier_response_failed: empty array raw={}", raw))
+        }
     }
 }
 
