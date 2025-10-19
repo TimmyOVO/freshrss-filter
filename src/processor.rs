@@ -1,5 +1,6 @@
 use anyhow::Result;
 use futures::stream::{self, StreamExt};
+use colored::Colorize;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use std::fmt::{Display, Formatter, Result as FmtResult};
 use std::sync::{Arc, Mutex};
@@ -109,13 +110,38 @@ impl Processor {
                             let left = (total_u64.saturating_sub(main_pb.position())) as usize;
                             main_pb.set_message(format!("动作: {} | 剩余: {}", action, left));
                             status_pb.set_message(format!("{} · {}", action, truncate(&title, 60)));
+                            match action {
+                                ProcessAction::Kept => {
+                                    let indicator = format!("{}", "[+]".green());
+                                    let action_text = format!("{}", action.to_string().green());
+                                    main_pb.println(format!(
+                                        "{} 处理任务完成: {}, 结果: {}",
+                                        indicator,
+                                        truncate(&title, 60),
+                                        action_text
+                                    ));
+                                }
+                                ProcessAction::MarkedRead | ProcessAction::Labeled => {
+                                    let indicator = format!("{}", "[-]".red());
+                                    let action_text = format!("{}", action.to_string().red());
+                                    main_pb.println(format!(
+                                        "{} 处理任务完成: {}, 结果: {}",
+                                        indicator,
+                                        truncate(&title, 60),
+                                        action_text
+                                    ));
+                                }
+                                _ => {}
+                            }
                         }
                         Err(e) => {
                             main_pb.inc(1);
                             let left = (total_u64.saturating_sub(main_pb.position())) as usize;
                             main_pb.set_message(format!("动作: 出错 | 剩余: {}", left));
                             status_pb.set_message(format!("出错 · {}", truncate(&title, 60)));
-                            warn!(error = ?e, "handle_item_error");
+                            let indicator = format!("{}", "[!]".yellow());
+                            let error_msg = format!("{}", e.to_string().yellow());
+                            main_pb.println(format!("{} 处理任务出错: {}", indicator, error_msg));
                         }
                     }
                     res

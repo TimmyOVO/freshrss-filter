@@ -20,3 +20,4 @@ regex = "1.11"
 sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "sqlite", "chrono", "uuid"] }
 md5 = "0.7"
 config = "0.15.18"
+colored = "2.1"
