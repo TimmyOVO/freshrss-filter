@@ -67,7 +67,6 @@ impl Processor {
             if let Ok(mut s) = self.state.last_run_status.lock() {
                 *s = "reviewed_items=0/0".into();
             }
-            info!("没有未读条目");
             return Ok(());
         }
 
