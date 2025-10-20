@@ -165,17 +165,6 @@ impl Processor {
         if let Ok(mut s) = self.state.last_run_status.lock() {
             *s = format!("reviewed_items={}/{}", reviewed, total);
         }
-        info!(
-            "完成 {}/{} | 保留={} 已读={} 已打标={} 已删除={} 已存在={} 预演={}",
-            reviewed,
-            total,
-            counts.kept,
-            counts.marked_read,
-            counts.labeled,
-            counts.deleted,
-            counts.skipped_exists,
-            counts.would_act,
-        );
         main_pb.finish_with_message(format!(
             "完成 {}/{} | 保留={} 已读={} 已打标={} 已删除={} 已存在={} 预演={}",
             reviewed,
