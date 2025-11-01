@@ -1,8 +1,31 @@
 use crate::config::OpenAiConfig;
 use anyhow::{Result, anyhow};
-use reqwest::Client;
+use reqwest::{Client, StatusCode};
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use tracing::{instrument, warn};
+
+use std::fmt;
+
+#[derive(Debug, Clone)]
+pub struct OpenAiApiError {
+    pub status: StatusCode,
+    pub body: Value,
+}
+
+impl OpenAiApiError {
+    pub fn new(status: StatusCode, body: Value) -> Self {
+        Self { status, body }
+    }
+}
+
+impl fmt::Display for OpenAiApiError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "openai_error: status={} body={}", self.status, self.body)
+    }
+}
+
+impl std::error::Error for OpenAiApiError {}
 
 #[derive(Clone)]
 pub struct OpenAiClient {
@@ -77,9 +100,14 @@ impl OpenAiClient {
             .await?;
 
         let status = resp.status();
-        let v: serde_json::Value = resp.json().await?;
+        let v: Value = resp.json().await?;
+
         if let Some(err) = v.get("error") {
-            return Err(anyhow!("openai_error: status={} body={}", status, err));
+            return Err(OpenAiApiError::new(status, err.clone()).into());
+        }
+
+        if !status.is_success() {
+            return Err(OpenAiApiError::new(status, v).into());
         }
 
         // Extract content

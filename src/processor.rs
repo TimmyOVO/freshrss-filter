@@ -3,12 +3,13 @@ use crate::{
     db::Database,
     freshrss::{FreshRssClient, item_text},
     greader::GReaderClient,
-    openai_client::OpenAiClient,
+    openai_client::{OpenAiApiError, OpenAiClient},
 };
 use anyhow::Result;
 use colored::Colorize;
 use futures::stream::{self, StreamExt};
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
+use reqwest::StatusCode;
 use std::fmt::{Display, Formatter, Result as FmtResult};
 use std::sync::{Arc, Mutex};
 use tracing::instrument;
@@ -188,7 +189,23 @@ impl Processor {
         }
         let text = item_text(&item);
         let hash = format!("{:x}", md5::compute(&text));
-        let res = self.llm.classify(&text).await?;
+        let res = match self.llm.classify(&text).await {
+            Ok(res) => res,
+            Err(err) => {
+                if let Some(api_err) = err.downcast_ref::<OpenAiApiError>() {
+                    if api_err.status == StatusCode::BAD_REQUEST {
+                        let title_preview = truncate(&item.title, 120);
+                        let reason = format!("{} | title={}", api_err, title_preview);
+                        warn!(item_id = %item.id, status = %api_err.status, title = %title_preview, reason = %reason, "openai_bad_request_marked");
+                        self.db
+                            .save_review(&item_id, &hash, false, 0.0, &reason)
+                            .await?;
+                        return Ok(ProcessAction::Kept);
+                    }
+                }
+                return Err(err);
+            }
+        };
         self.db
             .save_review(&item_id, &hash, res.is_ad, res.confidence, &res.reason)
             .await?;

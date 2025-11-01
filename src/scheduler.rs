@@ -1,4 +1,8 @@
 use anyhow::Result;
+use std::sync::{
+    Arc,
+    atomic::{AtomicBool, Ordering},
+};
 use tokio_cron_scheduler::{Job, JobScheduler};
 use tracing::info;
 
@@ -23,9 +27,34 @@ impl Scheduler {
         Fut: std::future::Future<Output = ()> + Send + 'static,
     {
         let cron = self.cfg.cron.clone();
+        let running = Arc::new(AtomicBool::new(false));
         let job = Job::new_async(cron.as_str(), move |_uuid, _l| {
+            let running = running.clone();
+
+            if running
+                .compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed)
+                .is_err()
+            {
+                tracing::warn!("scheduler_job_skipped_previous_run_in_progress");
+                return Box::pin(async {});
+            }
+
             let fut = f();
+
+            struct RunningGuard {
+                flag: Arc<AtomicBool>,
+            }
+
+            impl Drop for RunningGuard {
+                fn drop(&mut self) {
+                    self.flag.store(false, Ordering::Release);
+                }
+            }
+
+            let guard = RunningGuard { flag: running };
+
             Box::pin(async move {
+                let _guard = guard;
                 fut.await;
             })
         })?;
